@@ -2,36 +2,25 @@ const express = require('express')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose')
-const User = require('../models/User')
 const router = express.Router()
+
+const users = [
+	{ id: new mongoose.Types.ObjectId(), username: 'superadmin', password: bcrypt.hashSync('password123', 10), role: 'Superadmin' },
+	{ id: new mongoose.Types.ObjectId(), username: 'schooladmin', password: bcrypt.hashSync('password123', 10), role: 'SchoolAdmin' },
+]
 
 router.post('/login', async (req, res) => {
 	const { username, password } = req.body
 
-	if (!username || !password) {
-		return res.status(400).json({ message: 'Username and password are required' })
-	}
+	const user = users.find(u => u.username === username)
+	if (!user) return res.status(404).json({ message: 'User not found' })
 
-	try {
-		const user = await User.findOne({ username })
+	const validPassword = await bcrypt.compare(password, user.password)
+	if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' })
 
-		if (!user) {
-			return res.status(404).json({ message: 'User not found' })
-		}
+	const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' })
 
-		const validPassword = await bcrypt.compare(password, user.password)
-
-		if (!validPassword) {
-			return res.status(400).json({ message: 'Invalid credentials' })
-		}
-
-		const token = jwt.sign({ id: user._id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' })
-
-		return res.status(200).json({ token })
-	} catch (err) {
-		console.error('Error logging in:', err)
-		return res.status(500).json({ message: 'Server error, please try again later' })
-	}
+	res.json({ token })
 })
 
 module.exports = router
