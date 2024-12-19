@@ -8,12 +8,22 @@ const studentRoutes = require('./routes/student');
 const authRoutes = require('./routes/auth');  // Assuming you already created this route for login
 const app = express();
 const cors = require('cors');  // Import cors package
+const rateLimit = require('express-rate-limit');
 
+// Global rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 900, // Limit each IP to 900 requests per windowMs
+  message: { message: 'Too many requests, try again later.' },
+});
+
+
+
+const helmet = require('helmet');
+app.use(helmet());
 
 // Enable CORS for all routes
 app.use(cors());
-
-// Your routes and other server setup
 
 // Load environment variables
 dotenv.config();
@@ -31,14 +41,18 @@ app.use('/api/schools', schoolRoutes);
 app.use('/api/classrooms', classroomRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/auth', authRoutes);
+
 // Global Error Handler
 app.use(errorHandler);
+app.use(apiLimiter);
 
-// Start the server
+// Start the server only if not in test environment
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+}
 
-
-
+// Export app for testing
+module.exports = app;
